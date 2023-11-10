@@ -39,11 +39,23 @@ builder.Services.AddAuthentication(x =>
 builder.Services.AddSingleton<JwtAuthenticationManager>(new JwtAuthenticationManager(key));
 
 
-
 builder.Services.AddDbContext<Context>(cntx => {
     cntx.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
+var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: MyAllowSpecificOrigins,
+                      policy =>
+                      {
+                          policy.WithOrigins("http://localhost:5173")
+                          .AllowAnyHeader()
+                          .AllowAnyMethod()
+                          .AllowCredentials(); 
+                      });
+});
 
 var app = builder.Build();
 
@@ -56,9 +68,17 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseCors(MyAllowSpecificOrigins);
+
 app.UseAuthentication();
 
 app.UseAuthorization();
+
+app.Use((context, next) =>
+{
+    context.Response.Headers.Add("Access-Control-Allow-Credentials", "true"); 
+    return next();
+});
 
 app.MapControllers();
 

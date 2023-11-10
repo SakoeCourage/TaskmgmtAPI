@@ -33,53 +33,155 @@ namespace TaskmgmtAPI.Controllers
         public UserTaskController(Db.Context context) => _context = context;
 
         [Authorize]
-        [HttpGet]
+        [HttpGet("all")]
         public async Task<ActionResult<UserTaskApiResponse>> AllTask([FromQuery] int? page = 1, [FromQuery] int? pageSize = 10, [FromQuery] string? search = "")
         {
-         
             var TaskQuery = _context.UserTask.AsQueryable();
-          
+
             if (!string.IsNullOrWhiteSpace(search))
             {
                 TaskQuery = TaskQuery.Where(task => task.description.Contains(search) || task.title.Contains(search))
-                            .OrderBy(t => t.createdAt);
+                            .OrderByDescending(t => t.createdAt);
             }
-           
-            var pagedList = Helpers.PagedList<UserTask>.ToPagedList(TaskQuery.OrderBy(t => t.createdAt).Include(t => t.author), page ?? 1, pageSize ?? 10, this.HttpContext);
+
+            var pagedList = Helpers.PagedList<UserTask>.ToPagedList(TaskQuery.OrderByDescending(t => t.createdAt).Include(t => t.author), page ?? 1, pageSize ?? 10, this.HttpContext);
 
             var authUser = await new AuthHelper(this._context).GetAuthenticatedUser(HttpContext);
 
-            var uTask =  pagedList.Select(u_task => {
+            var uTask = pagedList.Select(u_task =>
+            {
                 return new
                 {
                     id = u_task.id,
                     authorID = u_task.authorID,
-                    author = u_task.author, 
+                    author = u_task.author,
                     title = u_task.title,
                     description = u_task.description,
-                    isCompletes = u_task.isCompleted,
-                    createAt = u_task.createdAt,
+                    isCompleted = u_task.isCompleted,
+                    createdAt = u_task.createdAt,
                     isAuthor = u_task.authorID == authUser.id
                 };
             });
 
-
             var response = new
             {
-                tasks  = uTask,
+                tasks = uTask,
                 CurrentPage = pagedList.CurrentPage,
                 TotalPages = pagedList.TotalPages,
                 PageSize = pagedList.PageSize,
                 TotalCount = pagedList.TotalCount,
                 prevPageUrl = pagedList.prevPageUrl,
                 nextPageUrl = pagedList.nextPageUrl
-             };
-
+            };
 
             return Ok(response);
-
-
         }
+
+
+        [Authorize]
+        [HttpGet("mytask")]
+        public async Task<ActionResult<UserTaskApiResponse>> MyTask([FromQuery] int? page = 1, [FromQuery] int? pageSize = 10, [FromQuery] string? search = "")
+        {
+            var TaskQuery = _context.UserTask.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                TaskQuery = TaskQuery.Where(task => task.description.Contains(search) || task.title.Contains(search))
+                            .OrderByDescending(t => t.createdAt);
+            }
+
+            var authUser = await new AuthHelper(this._context).GetAuthenticatedUser(HttpContext);
+
+
+
+            var pagedList = Helpers.PagedList<UserTask>.ToPagedList(
+                TaskQuery.OrderByDescending(t => t.createdAt).Include(t => t.author)
+                .Where(t => t.author.id == authUser.id)
+                , page ?? 1, pageSize ?? 10, this.HttpContext);
+
+
+            var uTask = pagedList.Select(u_task =>
+            {
+                return new
+                {
+                    id = u_task.id,
+                    authorID = u_task.authorID,
+                    author = u_task.author,
+                    title = u_task.title,
+                    description = u_task.description,
+                    isCompleted = u_task.isCompleted,
+                    createdAt = u_task.createdAt,
+                    isAuthor = u_task.authorID == authUser.id
+                };
+            });
+
+            var response = new
+            {
+                tasks = uTask,
+                CurrentPage = pagedList.CurrentPage,
+                TotalPages = pagedList.TotalPages,
+                PageSize = pagedList.PageSize,
+                TotalCount = pagedList.TotalCount,
+                prevPageUrl = pagedList.prevPageUrl,
+                nextPageUrl = pagedList.nextPageUrl
+            };
+
+            return Ok(response);
+        }
+
+
+        [Authorize]
+        [HttpGet("completedTask")]
+        public async Task<ActionResult<UserTaskApiResponse>> CompletedTask([FromQuery] int? page = 1, [FromQuery] int? pageSize = 10, [FromQuery] string? search = "")
+        {
+            var TaskQuery = _context.UserTask.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                TaskQuery = TaskQuery.Where(task => task.description.Contains(search) || task.title.Contains(search))
+                            .OrderByDescending(t => t.createdAt);
+            }
+
+            var authUser = await new AuthHelper(this._context).GetAuthenticatedUser(HttpContext);
+
+
+
+            var pagedList = Helpers.PagedList<UserTask>.ToPagedList(
+                TaskQuery.OrderByDescending(t => t.createdAt).Include(t => t.author)
+                .Where(t => t.author.id == authUser.id && t.isCompleted == true)
+                , page ?? 1, pageSize ?? 10, this.HttpContext);
+
+
+            var uTask = pagedList.Select(u_task =>
+            {
+                return new
+                {
+                    id = u_task.id,
+                    authorID = u_task.authorID,
+                    author = u_task.author,
+                    title = u_task.title,
+                    description = u_task.description,
+                    isCompleted = u_task.isCompleted,
+                    createdAt = u_task.createdAt,
+                    isAuthor = u_task.authorID == authUser.id
+                };
+            });
+
+            var response = new
+            {
+                tasks = uTask,
+                CurrentPage = pagedList.CurrentPage,
+                TotalPages = pagedList.TotalPages,
+                PageSize = pagedList.PageSize,
+                TotalCount = pagedList.TotalCount,
+                prevPageUrl = pagedList.prevPageUrl,
+                nextPageUrl = pagedList.nextPageUrl
+            };
+
+            return Ok(response);
+        }
+
+
 
         [Authorize]
         [HttpGet("getTaskById/{id}")]
@@ -96,16 +198,16 @@ namespace TaskmgmtAPI.Controllers
             var authUser = await new AuthHelper(this._context).GetAuthenticatedUser(HttpContext);
 
             var uTask = new
-                {
-                    id = u_task.id,
-                    authorID = u_task.authorID,
-                    author = u_task.author,
-                    title = u_task.title,
-                    description = u_task.description,
-                    isCompletes = u_task.isCompleted,
-                    createAt = u_task.createdAt,
-                    isAuthor = u_task.authorID == authUser.id
-                };
+            {
+                id = u_task.id,
+                authorID = u_task.authorID,
+                author = u_task.author,
+                title = u_task.title,
+                description = u_task.description,
+                isCompletes = u_task.isCompleted,
+                createAt = u_task.createdAt,
+                isAuthor = u_task.authorID == authUser.id
+            };
 
             return Ok(uTask);
         }
@@ -141,7 +243,7 @@ namespace TaskmgmtAPI.Controllers
             return CreatedAtAction(nameof(GetTaksByID), new { id = userTask.id }, userTask);
         }
 
-        [Authorize] 
+        [Authorize]
         [HttpPut("ToggleTaskCompletion/{id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -159,10 +261,10 @@ namespace TaskmgmtAPI.Controllers
         }
 
         [Authorize]
-        [HttpDelete("id")]
+        [HttpDelete("delete/{id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> DeleteTask([FromBody] int id)
+        public async Task<IActionResult> DeleteTask(int id)
         {
             var task = await _context.UserTask.FindAsync(id);
 

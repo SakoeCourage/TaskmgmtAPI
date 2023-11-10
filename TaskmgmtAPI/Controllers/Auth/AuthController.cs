@@ -15,7 +15,8 @@ namespace TaskmgmtAPI.Controllers.Auth
         private readonly Context _context;
         private readonly JwtAuthenticationManager _jwtManager;
 
-        public AuthController(JwtAuthenticationManager jwtManager, Context context) {
+        public AuthController(JwtAuthenticationManager jwtManager, Context context)
+        {
             _jwtManager = jwtManager;
             _context = context;
         }
@@ -25,28 +26,38 @@ namespace TaskmgmtAPI.Controllers.Auth
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Login([FromBody] UserloginDto credentials) {
+        public async Task<IActionResult> Login([FromBody] UserloginDto credentials)
+        {
 
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
+
 
             var authUser = await _context.User.FirstOrDefaultAsync(u => u.email == credentials.email);
 
-            if (authUser == null) {
-                ModelState.AddModelError("email", "email or password is not correct.");
-                return UnprocessableEntity(ModelState);
+            var emailError = new
+            {
+                errors = new Dictionary<string, string[]>
+                    {
+                    { "email", new string[] { "Email or password is not correct." } }
+                    }
             };
 
-            if (BCrypt.Net.BCrypt.Verify(credentials.password, authUser.password) == false) {
-                ModelState.AddModelError("email", "email or password is not correct.");
-                return UnprocessableEntity(ModelState);
+
+            if (authUser == null)
+            {
+                return BadRequest(emailError);
             };
 
-            var result = new {
+
+            if (BCrypt.Net.BCrypt.Verify(credentials.password, authUser.password) == false)
+            {
+                return BadRequest(emailError);
+            };
+
+
+            var result = new
+            {
                 authUser = authUser,
-                accesToken = _jwtManager.authenticate(authUser.id,authUser.email)
+                accessToken = _jwtManager.authenticate(authUser.id, authUser.email)
             };
             return Ok(result);
         }
@@ -60,7 +71,7 @@ namespace TaskmgmtAPI.Controllers.Auth
         public async Task<IActionResult> Authuser()
         {
             var authUser = await new AuthHelper(this._context).GetAuthenticatedUser(HttpContext);
-            if(authUser == null) return BadRequest("User information not found.");
+            if (authUser == null) return BadRequest("User information not found.");
             return Ok(authUser);
 
         }
@@ -72,7 +83,6 @@ namespace TaskmgmtAPI.Controllers.Auth
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Create([FromBody] RegisterDto registerParams)
         {
-
             if (registerParams is null)
             {
                 return BadRequest("Invalid user data.");
@@ -80,7 +90,19 @@ namespace TaskmgmtAPI.Controllers.Auth
 
             if (!ModelState.IsValid)
             {
-                return UnprocessableEntity(ModelState);
+                return BadRequest(ModelState);
+            }
+
+            var userExist = await _context.User.FirstOrDefaultAsync(u => u.email == registerParams.email);
+
+            if (userExist != null) {
+                var badRequestState = new
+                {
+                    errors = new Dictionary<string, string[]> {
+                        {"email", new string[]{ "Email has already been taken"} }
+                    }
+                };
+                return BadRequest(badRequestState);
             }
 
             var user = new User()
@@ -95,7 +117,7 @@ namespace TaskmgmtAPI.Controllers.Auth
             await _context.User.AddAsync(user);
 
             await _context.SaveChangesAsync();
-            //var newUser =  await GetUserByID(user.id) as User;
+           
             return NoContent();
         }
 
@@ -106,7 +128,7 @@ namespace TaskmgmtAPI.Controllers.Auth
         public async Task<IActionResult> UpdateCredentials(int id, User user)
         {
             if (id != user.id) return BadRequest();
-             
+
             user.updatedAt = DateTime.Now;
             _context.Entry(user).State = EntityState.Modified;
 
